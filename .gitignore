@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Large files
+models/
+data/
+results/
+logs/
+wheels/
+EAGLE/
+
+# Editor
+*.swp
+*.swo
+.DS_Store
+.vscode/
+.idea/

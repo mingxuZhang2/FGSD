@@ -1,0 +1,88 @@
+# FGSD Default Configuration
+# Feature-Guided Speculative Decoding
+
+project_name: fgsd
+seed: 42
+log_level: INFO
+
+model:
+  # LLaMA-3.1-8B-Instruct (P0 target)
+  base_model_path: "models/target/Meta-Llama-3.1-8B-Instruct"
+  ea_model_path: "models/eagle3_drafters/EAGLE3-LLaMA3.1-Instruct-8B"
+  model_family: llama
+  use_eagle3: true
+  torch_dtype: float16
+  device_map: auto
+  total_token: 60
+  depth: 5
+  top_k: 10
+  threshold: 1.0
+
+collector:
+  benchmark: mt_bench
+  data_path: "data/benchmarks"
+  max_samples: -1
+  temperature: 0.0
+  max_new_tokens: 512
+  max_length: 2048
+  collect_draft_hidden: true
+  collect_target_hidden: true
+  collect_draft_logits: false
+  collect_entropy: true
+  target_layers: []  # use EAGLE-3 defaults
+  output_dir: "data/hidden_states"
+  save_format: safetensors
+  chunk_size: 50
+
+probe:
+  probe_type: mlp
+  hidden_dim: 256
+  num_mlp_layers: 2
+  dropout: 0.1
+  input_source: draft_hidden
+  probe_layers: [-1]
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  batch_size: 256
+  num_epochs: 20
+  early_stopping_patience: 5
+  val_fraction: 0.15
+  test_fraction: 0.15
+  seed: 42
+  use_class_weights: true
+  pos_weight_cap: 5.0
+  data_dir: "data/hidden_states"
+  output_dir: "results/probes"
+
+controller:
+  strategy: threshold
+  rejection_threshold: 0.5
+  max_draft_length: 8
+  min_draft_length: 1
+  prune_threshold: 0.7
+  min_tree_width: 2
+  probe_checkpoint: ""
+  baseline: none
+  svip_entropy_threshold: 2.0
+  fixed_draft_length: 5
+
+eval:
+  benchmarks:
+    - mt_bench
+    - humaneval
+    - gsm8k
+    - alpaca
+    - cnn_dm
+  temperatures:
+    - 0.0
+    - 1.0
+  num_runs: 1
+  max_new_tokens: 512
+  max_length: 2048
+  methods:
+    - vanilla
+    - eagle3
+    - fgsd
+    - svip
+  output_dir: "results/eval"
+  save_generations: false

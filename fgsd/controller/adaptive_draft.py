@@ -13,6 +13,7 @@ layer_outputs[0] from midlayer), so train/eval features match. The depth index
 (i+1) is passed as the probe position, matching the collection labels.
 """
 
+import math
 import time
 import types
 import logging
@@ -160,8 +161,19 @@ def adaptive_topk_genrate(self, hidden_states, input_ids, head, logits_processor
                 p_reject = controller.predict_rejection_batch(
                     out_hidden[0], position=min(drafted, max_pos)
                 )
-                mean_p = p_reject.mean().item()
+                aggregation = getattr(controller, "aggregation", "mean")
+                if aggregation == "score_weighted" and scores.numel() > 1:
+                    w = torch.softmax(scores.float(), dim=0)
+                    mean_p = (w * p_reject.float()).sum().item()
+                elif aggregation == "top1":
+                    top_idx = torch.argmax(scores)
+                    mean_p = p_reject[top_idx].item()
+                else:
+                    mean_p = p_reject.mean().item()
             self._fgsd_probe_time_ms += (time.time() - t0) * 1000
+
+            # Depth-dependent threshold: decay extend_threshold at deeper levels
+            extend_decay = getattr(controller, "extend_decay", 0.0)
             if drafted < depth:
                 # Within base depth: early exit on predicted rejection
                 if mean_p > controller.threshold:
@@ -171,7 +183,9 @@ def adaptive_topk_genrate(self, hidden_states, input_ids, head, logits_processor
             else:
                 # At/beyond base depth: keep extending only while the probe
                 # predicts continued acceptance
-                if extend_threshold is None or mean_p > extend_threshold:
+                extra = max(0, drafted - depth)
+                eff_thr = extend_threshold * math.exp(-extend_decay * extra) if extend_decay > 0 else extend_threshold
+                if eff_thr is None or mean_p > eff_thr:
                     drafted_depth = drafted
                     break
 

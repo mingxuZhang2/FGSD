@@ -508,6 +508,10 @@ class BenchmarkRunner:
         input_len = input_ids.shape[1]
         reset_tree_mode(model)
 
+        # Timer includes initialize_tree for fair comparison with eagenerate()
+        torch.cuda.synchronize()
+        gen_start = time.time()
+
         # Prefill — the patched topK_genrate inside initialize_tree records
         # drafted depth / probe time on ea_layer
         probe_ms_prev = ea_layer._fgsd_probe_time_ms
@@ -517,9 +521,6 @@ class BenchmarkRunner:
         new_token = 0
         effective_max_length = max_length - model.ea_layer.total_tokens - 10
         steps = []
-
-        torch.cuda.synchronize()
-        gen_start = time.time()
 
         for step_idx in range(effective_max_length):
             step_metrics = StepMetrics()

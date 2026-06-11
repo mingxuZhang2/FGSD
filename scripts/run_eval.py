@@ -66,6 +66,13 @@ def main():
                              "to this while the probe predicts acceptance")
     parser.add_argument("--extend-threshold", type=float, default=0.2,
                         help="Mean P(reject) below which depth extension continues")
+    parser.add_argument("--max-position", type=int, default=0,
+                        help="Max probe position (0 = auto from max-extended-depth or depth)")
+    parser.add_argument("--aggregation", type=str, default="mean",
+                        choices=["mean", "score_weighted", "top1"],
+                        help="How to aggregate P(reject) over top_k candidates")
+    parser.add_argument("--extend-decay", type=float, default=0.0,
+                        help="Exponential decay rate for extend_threshold at deeper levels")
 
     # Evaluation settings
     parser.add_argument("--benchmarks", type=str, nargs="+",
@@ -138,14 +145,19 @@ def main():
     # Load FGSD controller if needed
     fgsd_controller = None
     if "fgsd" in args.methods and args.probe_dir:
+        max_pos = args.max_position or args.max_extended_depth or args.depth
         fgsd_controller = AdaptiveDraftController.from_checkpoint(
             checkpoint_dir=args.probe_dir,
             device="cuda",
             threshold=args.rejection_threshold,
             max_extended_depth=args.max_extended_depth or None,
             extend_threshold=args.extend_threshold,
+            max_position=max_pos,
+            aggregation=args.aggregation,
+            extend_decay=args.extend_decay,
         )
-        logger.info(f"Loaded FGSD controller from {args.probe_dir}")
+        logger.info(f"Loaded FGSD controller from {args.probe_dir} "
+                     f"(max_pos={max_pos}, agg={args.aggregation}, decay={args.extend_decay})")
 
     # SVIP controller: entropy signal through the SAME bidirectional control
     # loop as FGSD — isolates internal-features-vs-output-entropy comparison

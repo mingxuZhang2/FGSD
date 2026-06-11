@@ -60,22 +60,9 @@ class AdaptiveDraftController:
         max_extended_depth: Optional[int] = None,
         extend_threshold: float = 0.2,
         max_position: int = 10,
+        aggregation: str = "mean",
+        extend_decay: float = 0.0,
     ):
-        """Initialize adaptive controller.
-
-        Args:
-            probe: Trained rejection probe
-            threshold: P(reject) threshold for stopping
-            max_draft_length: Maximum draft tokens to generate
-            min_draft_length: Minimum draft tokens before stopping is allowed
-            strategy: "threshold" for early stopping, "confidence" for
-                      confidence-weighted stopping
-            norm_stats: Feature normalization stats from training
-            max_extended_depth: If set (> base depth), the adaptive draft may
-                extend beyond the base depth while the probe predicts
-                continued acceptance (bidirectional adaptive depth)
-            extend_threshold: Mean P(reject) below which extension continues
-        """
         self.probe = probe
         self.probe.eval()
         self.threshold = threshold
@@ -86,6 +73,8 @@ class AdaptiveDraftController:
         self.max_extended_depth = max_extended_depth
         self.extend_threshold = extend_threshold
         self.max_position = max_position
+        self.aggregation = aggregation
+        self.extend_decay = extend_decay
 
         # Statistics tracking
         self._total_steps = 0
@@ -268,20 +257,9 @@ class AdaptiveDraftController:
         max_extended_depth: Optional[int] = None,
         extend_threshold: float = 0.2,
         max_position: int = 10,
+        aggregation: str = "mean",
+        extend_decay: float = 0.0,
     ) -> "AdaptiveDraftController":
-        """Load controller from a saved probe checkpoint.
-
-        Args:
-            checkpoint_dir: Directory containing best.pt and config.json
-            device: Device to load probe on
-            threshold: Rejection threshold
-            max_draft_length: Max draft length
-            min_draft_length: Min draft length
-            strategy: Stopping strategy
-
-        Returns:
-            Initialized AdaptiveDraftController
-        """
         # Load probe config
         config_path = os.path.join(checkpoint_dir, "config.json")
         with open(config_path, "r") as f:
@@ -329,4 +307,6 @@ class AdaptiveDraftController:
             max_extended_depth=max_extended_depth,
             extend_threshold=extend_threshold,
             max_position=max_position,
+            aggregation=aggregation,
+            extend_decay=extend_decay,
         )

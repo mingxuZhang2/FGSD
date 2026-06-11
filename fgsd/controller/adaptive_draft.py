@@ -145,11 +145,12 @@ def adaptive_topk_genrate(self, hidden_states, input_ids, head, logits_processor
             # expected saving is below the cost of the probe call itself.
             if drafted == 1 and depth > 2:
                 continue
-            # threshold > 1 can never trigger for a sigmoid probability, so
-            # early exit is disabled: skip the in-base-depth probe calls
-            # entirely instead of paying ~0.5ms each for a no-op decision.
-            # (Entropy thresholds are in nats and routinely exceed 1.)
-            if signal != "entropy" and drafted < depth and controller.threshold > 1.0:
+            # Extension-only mode: skip base-depth checks entirely.
+            # For probe signal: threshold > 1.0 can never fire (sigmoid range).
+            # For entropy signal: threshold > 100 serves as the disable flag.
+            skip_base = (signal != "entropy" and controller.threshold > 1.0) or \
+                        (signal == "entropy" and controller.threshold > 100.0)
+            if drafted < depth and skip_base:
                 continue
             t0 = time.time()
             if signal == "entropy":
